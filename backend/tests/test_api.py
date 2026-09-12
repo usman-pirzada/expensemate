@@ -125,3 +125,18 @@ def test_csv_round_trip(client):
     response = client.post("/api/transactions/csv/import", json={"content": csv_content})
     assert response.status_code == 200
     assert response.json()["imported"] == 1
+
+
+def test_csv_import_is_atomic(client):
+    content = (
+        "type,amount,date,description,category_id\n"
+        "Expense,100.00,2026-09-12,Valid,1\n"
+        "Expense,200.00,2026-09-12,Invalid,9999\n"
+    )
+
+    response = client.post("/api/transactions/csv/import", json={"content": content})
+    assert response.status_code == 400
+
+    response = client.get("/api/transactions?year=2026&month=9")
+    assert response.status_code == 200
+    assert response.json() == []
