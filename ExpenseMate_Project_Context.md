@@ -17,6 +17,66 @@
 
 ------------------------------------------------------------------------
 
+# FOR AI AGENTS — WHERE TO PICK UP (READ THIS FIRST)
+
+If you are a coding agent starting work on this repository, do not
+assume the frontend is unfinished scaffolding. It is implemented and
+building.
+
+## Current state in one paragraph
+
+`expensemate/frontend` is a complete React + Vite + Tailwind v4 app
+covering Dashboard, Transactions, Budget, Analytics, and CSV
+Import/Export. Pages talk to `frontend/src/services/expenseService.js`
+only. That module currently runs against static sample data
+(`USE_MOCK = true`) but can be flipped to the real FastAPI backend by
+setting it to `false`. The next planned piece of work (§42) was drafted
+and then fully reverted because the backend teammate must first agree on
+where an "income lock" lives (§43).
+
+## Reading order
+
+``` text
+§6   Current frontend status (incl. as-built note)
+§7   Backend data model            (income/expense/category rules)
+§40  What has been built  — the as-built inventory
+§41  USE_MOCK + real backend switch + commands
+§42  What is going to be done next — the planned UX change
+§43  Open decision blocking §42    — income lock: frontend vs backend
+```
+
+Read §36 ("Key Decisions That Must Not Be Accidentally Reversed") before
+modifying anything.
+
+## What to do
+
+-   To review/verify frontend work: use `npm run build` and `npm run
+    dev` (see §41 for exact commands).
+-   To implement ordinary frontend changes: work from the as-built
+    state in §40 and keep importing only from `expenseService.js`.
+-   To implement §42 (expense-only entry + single locked monthly
+    income): **do not start until the backend teammate agrees where the
+    lock lives (§43)**. Until that is resolved, leave `USE_MOCK`, the
+    current transaction flow, and the transactions table behavior
+    untouched. Nothing from the earlier draft remains in the codebase.
+    Do not try to resurrect it from memory; re-derive it from §42-43 once
+    unblocked.
+
+## Hard guardrails
+
+``` text
+1. Pages/components import ONLY from frontend/src/services/expenseService.js.
+2. Do NOT modify backend code unless explicitly asked.
+3. Do NOT create categories UI; categories are predefined (GET /categories).
+4. Expense requires category_id; Income must use category_id = null.
+5. Allocation total cannot exceed the overall budget (backend-enforced).
+6. Budget approach alert threshold 90%, exceeded 100% (dynamic, no table).
+7. Do NOT bypass the API to touch SQLite from React.
+8. Run the affected UI after meaningful changes; never silently swallow API errors.
+```
+
+------------------------------------------------------------------------
+
 ## 1. Project Identity
 
 **Project:** ExpenseMate --- Personal Expense Manager
