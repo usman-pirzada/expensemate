@@ -10,27 +10,22 @@ class TransactionRepository:
     """Provide database operations for transactions."""
 
     def __init__(self, db: Session) -> None:
-        """Initialize the repository with a SQLAlchemy session."""
         self.db = db
 
     def create(self, transaction: Transaction) -> Transaction:
-        """Persist a transaction and return the refreshed entity."""
         self.db.add(transaction)
         self.db.commit()
         self.db.refresh(transaction)
         return transaction
 
     def get_by_id(self, transaction_id: int) -> Transaction | None:
-        """Return a transaction by its primary key, or None when not found."""
         return self.db.get(Transaction, transaction_id)
 
     def get_all(self) -> list[Transaction]:
-        """Return all transactions ordered from newest to oldest."""
         statement = select(Transaction).order_by(Transaction.date.desc(), Transaction.id.desc())
         return list(self.db.scalars(statement).all())
 
     def get_by_month(self, year: int, month: int) -> list[Transaction]:
-        """Return transactions belonging to the specified calendar month."""
         from calendar import monthrange
 
         start_date = date(year, month, 1)
@@ -43,7 +38,6 @@ class TransactionRepository:
         return list(self.db.scalars(statement).all())
 
     def get_expenses_by_month(self, year: int, month: int) -> list[Transaction]:
-        """Return only expense transactions for the specified calendar month."""
         from calendar import monthrange
 
         start_date = date(year, month, 1)
@@ -57,3 +51,12 @@ class TransactionRepository:
             .order_by(Transaction.date.desc(), Transaction.id.desc())
         )
         return list(self.db.scalars(statement).all())
+
+    def update(self, transaction: Transaction) -> Transaction:
+        self.db.commit()
+        self.db.refresh(transaction)
+        return transaction
+
+    def delete(self, transaction: Transaction) -> None:
+        self.db.delete(transaction)
+        self.db.commit()
