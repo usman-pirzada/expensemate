@@ -37,21 +37,28 @@ class CSVService:
         if reader.fieldnames is None or set(reader.fieldnames) != set(self.HEADERS):
             raise ValueError("CSV must contain type, amount, date, description, and category_id columns")
 
-        imported = 0
+        pending: list[tuple[str, Decimal, date, str | None, int | None]] = []
         for row_number, row in enumerate(reader, start=2):
             try:
                 amount = Decimal(row["amount"])
                 transaction_date = date.fromisoformat(row["date"])
                 category_text = (row.get("category_id") or "").strip()
                 category_id = int(category_text) if category_text else None
-                self.transactions.create(
-                    transaction_type=row["type"].strip(),
-                    amount=amount,
-                    transaction_date=transaction_date,
-                    description=(row.get("description") or "").strip() or None,
-                    category_id=category_id,
+                pending.append(
+                    (
+                        row["type"].strip(),
+                        amount,
+                        transaction_date,
+                        (row.get("description") or "").strip() or None,
+                        category_id,
+                    )
                 )
-                imported += 1
             except (KeyError, ValueError, InvalidOperation) as exc:
                 raise ValueError(f"invalid transaction on CSV row {row_number}: {exc}") from exc
-        return imported
+
+        try:
+            self.transactions.create_many(pending)
+        except ValueError as exc:
+            raise ValueError(f"invalid transaction in CSV: {exc}") from exc
+
+        return len(pending)
