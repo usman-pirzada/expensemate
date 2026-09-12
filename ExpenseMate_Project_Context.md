@@ -7,6 +7,13 @@
 > **Important:** Treat the existing repository implementation as the
 > source of truth for backend behavior. Do not invent or redesign
 > backend APIs when implementing the frontend.
+>
+> **Status:** The frontend is implemented (see §40 for the as-built
+> inventory). The mock/real backend switch is controlled by the
+> `USE_MOCK` flag in `frontend/src/services/expenseService.js` (see
+> §41). A follow-up UX change — expense-only entry plus a single locked
+> monthly income — is planned but is **pending discussion with the
+> backend teammate** before implementation (see §§42-43).
 
 ------------------------------------------------------------------------
 
@@ -236,6 +243,18 @@ The npm packages and generated files belong to this directory.
 `npm run dev` has been tested and works successfully.
 
 Do not recreate the frontend project or run `npm create vite` again.
+
+### As-built status
+
+The frontend described in the remainder of this document has been fully
+implemented inside `expensemate/frontend` and `npm run build` passes.
+
+Everything is documented as-built in §40, the mock/real backend switch
+is documented in §41, and the next planned work (expense-only entry +
+single locked monthly income) is documented in §§42-43.
+
+Do not redesign the frontend from scratch; modify the existing
+implementation.
 
 ------------------------------------------------------------------------
 
@@ -1425,27 +1444,29 @@ intended requirements, do not silently rewrite it; flag the discrepancy.
 
 # 38. Immediate Frontend Development Direction
 
-The frontend environment is already installed and `npm run dev` works.
-
-The next sensible implementation sequence is:
+The implementation sequence below is now **complete**. The frontend has
+been built against the existing backend, renders correctly with the
+sample data, and `npm run build` passes.
 
 ``` text
-1. Inspect existing frontend files.
-2. Configure/verify Tailwind v4.
-3. Set up React Router.
-4. Establish the application layout/navigation.
-5. Establish API service/base configuration.
-6. Build Dashboard.
-7. Build Transactions UI.
-8. Build Budget UI.
-9. Build Analytics UI.
-10. Build CSV Import/Export UI.
-11. Integrate and test all flows.
-12. Polish responsive/accessibility/error states.
+1. Inspect existing frontend files.               [done]
+2. Configure/verify Tailwind v4.                  [done]
+3. Set up React Router.                           [done]
+4. Establish the application layout/navigation.   [done]
+5. Establish API service/base configuration.      [done]
+6. Build Dashboard.                               [done]
+7. Build Transactions UI.                         [done]
+8. Build Budget UI.                               [done]
+9. Build Analytics UI.                            [done]
+10. Build CSV Import/Export UI.                   [done]
+11. Integrate and test all flows.                 [done]
+12. Polish responsive/accessibility/error states. [done]
 ```
 
-Do not create all components/pages blindly before understanding the
-required UI.
+See §40 for the as-built inventory, §41 for how to switch between the
+sample data and the real FastAPI backend, and §§42-43 for the next
+planned UX change and the open decision that must first be discussed
+with the backend teammate.
 
 ------------------------------------------------------------------------
 
@@ -1473,6 +1494,352 @@ expensemate/backend
 
 The repository's existing implementation should be inspected directly
 before making API assumptions.
+
+------------------------------------------------------------------------
+
+# 40. What Has Been Built (Frontend — As-Built Inventory)
+
+The frontend is fully implemented. Pages import **only** from
+`src/services/expenseService.js`; they never touch `api.js` or
+`mockData.js` directly.
+
+## As-built file tree
+
+``` text
+frontend/src/
+├── main.jsx                       # React root (StrictMode), mounts <App/>
+├── App.jsx                        # BrowserRouter + ThemeProvider + MonthProvider + routes
+├── index.css                      # Tailwind v4 entry, brand palette, custom dark variant
+│
+├── components/
+│   ├── common/
+│   │   ├── AlertBanner.jsx        # approaching/exceeded alert banner
+│   │   ├── Badge.jsx              # tonal badge (e.g. Income=green, Expense=red)
+│   │   ├── BudgetBar.jsx          # single horizontal bar; grows past 100%, shows overage
+│   │   ├── Button.jsx             # primary/secondary/danger/ghost × sm/md/lg
+│   │   ├── Card.jsx               # Card + CardHeader (title/subtitle/action)
+│   │   ├── EmptyState.jsx         # icon + title + message + optional action
+│   │   ├── Icons.jsx              # inline SVG icon set
+│   │   ├── Modal.jsx              # overlay modal (open, onClose, title)
+│   │   └── StatCard.jsx           # label + value (income/expense tones) + optional sub
+│   ├── layout/
+│   │   ├── Layout.jsx             # shared shell: sidebar, header, main Outlet
+│   │   ├── MonthSelector.jsx      # prev/next month stepper (uses useMonth)
+│   │   ├── Sidebar.jsx            # desktop + mobile drawer navigation
+│   │   └── ThemeToggle.jsx        # light/dark toggle button (uses useTheme)
+│   ├── transactions/
+│   │   ├── TransactionForm.jsx    # type switch (Income/Expense), amount/date/category/description
+│   │   └── TransactionTable.jsx   # monthly transaction rows with edit/delete actions
+│   └── budget/
+│       ├── BudgetForm.jsx         # overall monthly budget amount form
+│       └── AllocationForm.jsx     # per-category allocation form
+│
+├── context/
+│   ├── MonthContext.jsx           # selected {year, month}, label, previousMonth/nextMonth
+│   └── ThemeContext.jsx           # dark flag persisted in localStorage("expensemate-theme")
+│
+├── hooks/
+│   └── useRequest.js              # useRequest(loader, deps) -> {data, loading, error, reload}
+│
+├── pages/
+│   ├── Dashboard.jsx
+│   ├── Transactions.jsx
+│   ├── Budget.jsx
+│   ├── Analytics.jsx
+│   └── ImportExport.jsx
+│
+├── services/
+│   ├── api.js                     # real HTTP layer (fetch wrapper + ApiError)
+│   ├── expenseService.js          # domain service; owns the USE_MOCK switch
+│   └── mockData.js                # static September 2026 sample dataset
+│
+└── utils/
+    ├── colors.js                  # fixed category palette + categoryColor(index)
+    └── format.js                  # MONTH_NAMES(_SHORT), formatCurrency, formatPercent, formatDate, toISODate
+```
+
+## Routing (App.jsx)
+
+``` text
+/               -> redirect to /dashboard
+/dashboard
+/transactions
+/budget
+/analytics
+/import-export
+*               -> "Page not found"
+```
+
+Providers order: `ThemeProvider` → `MonthProvider` → routes. The shared
+`Layout` (sidebar + header) wraps every page via an outlet route.
+
+## Header (Layout.jsx)
+
+Contains:
+
+-   page title
+-   `MonthSelector` (global selected month)
+-   `ThemeToggle` (light/dark)
+-   **Add Transaction** button → navigates to `/transactions?new=1`,
+    which auto-opens the transaction modal and clears the query param.
+    This button is the target of the upcoming redesign (§42).
+
+## State management
+
+-   **Selected month** — `MonthContext`; defaults to the current real
+    month, exposes `{year, month, label}`, `previousMonth()`,
+    `nextMonth()`. Used by every data-fetching page.
+-   **Theme** — `ThemeContext`; defaults to
+    `prefers-color-scheme: dark` on first visit, then persists to
+    `localStorage["expensemate-theme"]`; toggles the `dark` class on
+    `document.documentElement`.
+-   **Data fetching** — `useRequest(loader, deps)`; keeps the loader in
+    a ref so a new inline function does not trigger extra reloads, and
+    returns `reload()` for after-write refresh.
+
+## Pages and behavior
+
+### Dashboard
+
+-   Stat cards: Total Income, Total Spending, Balance.
+-   Overall monthly budget bar (only when a budget exists; otherwise an
+    empty state that still allows recording transactions).
+-   Per-category budget bars for explicitly allocated categories.
+-   Spending-by-category donut (Recharts `PieChart`).
+-   Dynamic alerts (`approaching` ≥ 90%, `exceeded` ≥ 100%) from the
+    analytics alerts payload; rendered by `AlertBanner`.
+-   Loading and error states for the combined dashboard request.
+
+### Transactions
+
+-   Monthly list for the selected month.
+-   Stat cards: Income, Spending, Net (computed client-side from the
+    listed rows).
+-   Full CRUD. Add/Edit open `TransactionForm` in a modal; delete is
+    immediate. Success/error banners with a dismiss action.
+-   `TransactionForm` has an Income/Expense type switch: switching to
+    **Income** hides and clears the category; **Expense** requires a
+    category, amount > 0, and a valid date.
+-   `?new=1` query param opens the form automatically.
+
+### Budget
+
+-   Shows "No budget for {month}" empty state with a Create budget
+    action when no budget exists for the selected month.
+-   Create/update/delete the overall monthly budget.
+-   Add/edit/delete category allocations (exact monetary amounts).
+    Editing a budget or allocation always reloads budget, allocations,
+    category-budget-status, and summary.
+-   Overall bar + one `BudgetBar` per allocation (used/spent vs amount);
+    "allocated / unallocated" split is computed, not stored.
+-   The Add-allocation button is hidden when there is nothing left to
+    allocate (all categories allocated or full amount used).
+
+### Analytics
+
+-   Stat cards: Total Income, Total Spending, Balance, Budget Used (%),
+    with a sub-line "X over budget" or "X remaining".
+-   Income-vs-spending grouped bar chart for the **last 3 months**
+    (including the selected month).
+-   Spending-by-category donut (Recharts).
+-   Category-wise spending breakdown list with share percentage badges.
+
+### Import / Export
+
+-   **Export**: fetches CSV text and triggers a browser download.
+-   **Import**: file picker (`.csv`), sends file content as
+    `{content}`, reports imported-row count or the error message.
+-   Inline documentation table of the expected CSV columns
+    (`type, amount, date, description, category_id`), with
+    Expense-requires-category / Income-null rules.
+
+## Common components
+
+-   `BudgetBar` — single horizontal bar per the spec: shows used/remaining
+    up to 100%, continues growing past 100% with a red overage segment, and
+    prints "over budget" vs "remaining".
+-   `Button` — variants `primary | secondary | danger | ghost`, sizes
+    `sm | md | lg`, disabled/aria-disabled support.
+-   `Badge` — tonal labels.
+-   `Modal`, `Card`/`CardHeader`, `EmptyState`, `AlertBanner`,
+    `StatCard` — used across all pages.
+
+## Styling
+
+-   Tailwind CSS **v4** configured through `@tailwindcss/vite` and
+    `@import "tailwindcss"` in `index.css`.
+-   Custom **emerald "brand"** palette defined via `@theme`
+    (`--color-brand-50 … --color-brand-900`).
+-   Dark mode uses the v4 custom-variant
+    `@custom-variant dark (&:where(.dark, .dark *));` and every
+    component carries `dark:` variants.
+-   Global `body` background/text switch between light and dark.
+
+## Verification
+
+-   `npm run build` passes (only a harmless chunk-size warning).
+-   `npm run dev` serves the app on http://localhost:5173.
+
+------------------------------------------------------------------------
+
+# 41. Switching Between Mock Data and the Real Backend (USE_MOCK)
+
+The frontend ships with sample data so the UI can be reviewed without
+running the backend, and a **single flag** flips the whole app to the
+real FastAPI API.
+
+## The flag
+
+``` javascript
+// frontend/src/services/expenseService.js
+export const USE_MOCK = true
+```
+
+``` text
+USE_MOCK = true   -> every service function returns sample data from
+                     frontend/src/services/mockData.js (static
+                     September 2026 dataset).
+USE_MOCK = false  -> every service function calls the live FastAPI
+                     backend through frontend/src/services/api.js.
+```
+
+**This is the intended way to review with sample data now and switch to
+the real backend later.** No page or component needs to change.
+
+## How it works
+
+-   `src/pages/*` import only from `src/services/expenseService.js`.
+-   Each exported function in `expenseService.js` branches on
+    `USE_MOCK` (e.g. `getTransactions`, `createTransaction`,
+    `getBudget`, `getDashboard`, `exportCsv`, …).
+-   To go live: set `USE_MOCK = false`, start the backend, and restart
+    the Vite dev server if the dev server was already running.
+
+## Backend base URL
+
+``` javascript
+// frontend/src/services/api.js
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+```
+
+-   Default: `http://localhost:8000/api` (FastAPI runs with the `/api`
+    prefix).
+-   To point elsewhere, set `VITE_API_URL` in `frontend/.env` (e.g.
+    `VITE_API_URL=http://localhost:8000/api`). Vite reads env vars at
+    build/start, so **restart the dev server** after changing it.
+-   `api.js` wraps `fetch()`, sets JSON content-type, parses JSON or
+    text, and throws `ApiError(status, detail)` on non-2xx responses.
+-   `expenseService.getBudget` converts a `404` into `null`, so "no
+    budget for the month" is an empty state, not an error.
+
+## Behavioral differences while in mock mode
+
+-   The sample dataset is **static** — create/update/delete reflect in
+    memory for that request only; a page reload restores the seeded
+    September 2026 data.
+-   Month filtering returns the September sample for the current month
+    and empty results for other months.
+-   `importCsv` reports `{ imported: 5 }`; it does not actually persist
+    rows.
+
+------------------------------------------------------------------------
+
+# 42. What We Are Going to Do Next (Pending UX Change)
+
+The SCD feature scope is functionally complete and building. The next
+change is a **UX redesign of income/expense entry** that was discussed
+and drafted, then **fully reverted** because it depends on how income is
+modeled/stored — which must be agreed with the **backend teammate before
+implementation**.
+
+Nothing from that draft remains in the codebase (the temporary files
+were deleted and the mock/utilities were restored).
+
+## The planned changes
+
+### 1. Replace "Add Transaction" with "Add Expense"
+
+-   The header **Add Transaction** button (and the transactions page)
+    should become **Add Expense**.
+-   It opens an **expense-only** form: Amount, Date, **Category
+    (required)**, Description (optional).
+-   Income would no longer be entered through the generic transaction
+    form. No type toggle on the add-expense flow.
+
+### 2. Add "Enter Income" with "Confirm & Lock"
+
+-   A separate **Enter Income** button in the header opens an income
+    flow.
+-   Only **a single income figure per month** may be set.
+-   Flow: enter an amount → confirmation modal showing the amount with
+    an unmissable warning text along the lines of:
+    > "You cannot change this income after pressing this button."
+-   A danger **"Confirm & Lock"** button creates the income transaction
+    and locks it.
+
+### 3. Income is locked afterward
+
+-   A locked monthly income **cannot be edited or deleted** in the UI.
+-   The Enter Income button reflects the locked state (e.g. disabled /
+    "Income locked").
+-   The only way to change it is to reset the month (see below).
+
+### 4. "Reset month" to re-enter
+
+-   A **Reset month** action (planned on the Dashboard) deletes the
+    selected month's data — income, expenses, budget, and category
+    allocations — so the user can re-enter income and start over.
+-   It should be a destructive, clearly-confirmed action (e.g. a modal
+    listing what will be deleted, requiring an explicit typed
+    confirmation such as `RESET` before the red confirm button
+    enables).
+
+------------------------------------------------------------------------
+
+# 43. Open Decision — Where the Income Lock Lives
+
+The single most important thing to settle with the backend teammate is
+**where the lock is enforced**, since it determines whether this prompt
+can be implemented entirely in the frontend or needs new backend work.
+The options discussed:
+
+## Option A — Frontend only (Recommended while unblocked)
+
+-   Derive the lock from data: a month is "locked" whenever an Income
+    transaction exists for it. No new storage, no new API.
+-   Implementation notes (from the draft):
+    -   Income modeled as **one Income transaction** dated on the 1st
+        of the month (e.g. `2026-09-01`) with description "Monthly
+        income" and `category_id: null`.
+    -   An `IncomeContext` computes `income` / `incomeLocked` for the
+        selected month from the analytics summary, driving the header
+        Enter Income button.
+    -   Reset month = delete allocations → budget → month transactions
+        (all existing DELETE endpoints), then reload.
+-   Pros: works immediately against the current API and the mock;
+    simplest to implement and demo.
+-   Cons: it is a UI convention, not backend enforcement. If the
+    backend were later to allow multiple incomes, or income edit/delete,
+    the backend would not prevent it.
+
+## Option B — With the backend
+
+-   Requires the backend teammate to add support, e.g. any of:
+    -   a dedicated "monthly income" concept/endpoint,
+    -   a uniqueness constraint (one income per month), and/or
+    -   an explicit locked flag stored per month.
+-   The frontend then reads/writes that API and the backend is
+    authoritative.
+-   Pros: authoritative; survives multiple clients.
+-   Cons: needs cross-team agreement and backend changes before the
+    frontend work can start.
+
+## Status
+
+Chosen direction at the time: **Option A (frontend only)**, the draft
+was implemented for a test, then **reverted in full**. Implementation is
+on hold until the lock/confirm behavior is agreed with the backend
+teammate.
 
 ------------------------------------------------------------------------
 
