@@ -18,6 +18,18 @@ class TransactionRepository:
         self.db.refresh(transaction)
         return transaction
 
+    def create_many(self, transactions: list[Transaction]) -> list[Transaction]:
+        """Persist a batch atomically so a failed import cannot leave partial data."""
+        self.db.add_all(transactions)
+        try:
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        for transaction in transactions:
+            self.db.refresh(transaction)
+        return transactions
+
     def get_by_id(self, transaction_id: int) -> Transaction | None:
         return self.db.get(Transaction, transaction_id)
 
