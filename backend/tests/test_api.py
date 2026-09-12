@@ -29,10 +29,7 @@ def client():
     seed_categories(db)
 
     def override_get_db():
-        try:
-            yield db
-        finally:
-            pass
+        yield db
 
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as test_client:
@@ -100,3 +97,26 @@ def test_dashboard_endpoint(client):
     response = client.get("/api/analytics/dashboard/2026/9")
     assert response.status_code == 200
     assert response.json()["summary"]["income"] == 100000.0
+
+
+def test_csv_round_trip(client):
+    response = client.post(
+        "/api/transactions",
+        json={
+            "type": "Expense",
+            "amount": "750.00",
+            "date": "2026-09-12",
+            "description": "Groceries",
+            "category_id": 1,
+        },
+    )
+    assert response.status_code == 201
+
+    response = client.get("/api/transactions/csv/export")
+    assert response.status_code == 200
+    csv_content = response.text
+    assert "Groceries" in csv_content
+
+    response = client.post("/api/transactions/csv/import", json={"content": csv_content})
+    assert response.status_code == 200
+    assert response.json()["imported"] == 1
