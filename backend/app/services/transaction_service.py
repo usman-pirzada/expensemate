@@ -25,14 +25,25 @@ class TransactionService:
         category_id: int | None = None,
     ) -> Transaction:
         self._validate(transaction_type, amount, transaction_date, category_id)
-        transaction = Transaction(
-            type=transaction_type,
-            amount=amount,
-            date=transaction_date,
-            description=description,
-            category_id=category_id,
+        transaction = self._build_transaction(
+            transaction_type, amount, transaction_date, description, category_id
         )
         return self.transactions.create(transaction)
+
+    def create_many(
+        self,
+        transactions: list[tuple[str, Decimal, date, str | None, int | None]],
+    ) -> list[Transaction]:
+        """Validate every transaction first, then persist the whole batch atomically."""
+        pending: list[Transaction] = []
+        for transaction_type, amount, transaction_date, description, category_id in transactions:
+            self._validate(transaction_type, amount, transaction_date, category_id)
+            pending.append(
+                self._build_transaction(
+                    transaction_type, amount, transaction_date, description, category_id
+                )
+            )
+        return self.transactions.create_many(pending)
 
     def get(self, transaction_id: int) -> Transaction | None:
         return self.transactions.get_by_id(transaction_id)
@@ -70,6 +81,22 @@ class TransactionService:
             return False
         self.transactions.delete(transaction)
         return True
+
+    @staticmethod
+    def _build_transaction(
+        transaction_type: str,
+        amount: Decimal,
+        transaction_date: date,
+        description: str | None,
+        category_id: int | None,
+    ) -> Transaction:
+        return Transaction(
+            type=transaction_type,
+            amount=amount,
+            date=transaction_date,
+            description=description,
+            category_id=category_id,
+        )
 
     def _validate(
         self,
