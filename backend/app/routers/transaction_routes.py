@@ -15,7 +15,13 @@ def service(db: Session) -> TransactionService:
 @router.post("", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
 def create_transaction(payload: TransactionCreate, db: Session = Depends(get_db)):
     try:
-        return service(db).create(**payload.model_dump())
+        return service(db).create(
+            transaction_type=payload.type,
+            amount=payload.amount,
+            transaction_date=payload.date,
+            description=payload.description,
+            category_id=payload.category_id,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -43,7 +49,14 @@ def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
 @router.put("/{transaction_id}", response_model=TransactionResponse)
 def update_transaction(transaction_id: int, payload: TransactionCreate, db: Session = Depends(get_db)):
     try:
-        transaction = service(db).update(transaction_id, **payload.model_dump())
+        transaction = service(db).update(
+            transaction_id,
+            transaction_type=payload.type,
+            amount=payload.amount,
+            transaction_date=payload.date,
+            description=payload.description,
+            category_id=payload.category_id,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if transaction is None:
