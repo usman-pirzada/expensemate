@@ -26,6 +26,13 @@ RUN pip install --no-cache-dir --target /python-deps \
 
 COPY backend/ ./
 
+# Prepare the persistent SQLite volume mount point with the same ownership
+# as the distroless nonroot runtime user. The marker keeps the directory
+# non-empty so Docker initializes a new named volume with these permissions.
+RUN mkdir -p /build/data \
+    && touch /build/data/.keep \
+    && chown -R 65532:65532 /build/data
+
 
 # Minimal production image. Distroless has no shell or package manager.
 FROM gcr.io/distroless/python3-debian13:nonroot AS production
@@ -37,6 +44,7 @@ ENV PYTHONPATH=/app/backend:/python-deps \
 
 COPY --from=backend-build /python-deps /python-deps
 COPY --from=backend-build /build/backend /app/backend
+COPY --from=backend-build /build/data /app/data
 COPY --from=frontend-build /build/frontend/dist /app/frontend/dist
 
 EXPOSE 8000
