@@ -26,17 +26,27 @@ RUN pip install --no-cache-dir --target /python-deps \
 
 COPY backend/ ./
 
+# Keep the directory in the image so a fresh persistent volume is initialized
+# at the expected mount point. The production container runs as root because
+# SQLite must be able to create/update its database and journal files inside
+# a Docker-managed persistent volume regardless of that volume's prior owner.
+RUN mkdir -p /build/data \
+    && touch /build/data/.keep
 
-# Minimal production image. Distroless has no shell or package manager.
-FROM gcr.io/distroless/python3-debian13:nonroot AS production
+
+# Minimal production image. The app is a local single-user service; running the
+# runtime as root avoids Docker named-volume UID/GID initialization failures.
+FROM gcr.io/distroless/python3-debian13 AS production
 WORKDIR /app
 
 ENV PYTHONPATH=/app/backend:/python-deps \
     PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    SERVE_FRONTEND=true
 
 COPY --from=backend-build /python-deps /python-deps
 COPY --from=backend-build /build/backend /app/backend
+COPY --from=backend-build /build/data /app/data
 COPY --from=frontend-build /build/frontend/dist /app/frontend/dist
 
 EXPOSE 8000
