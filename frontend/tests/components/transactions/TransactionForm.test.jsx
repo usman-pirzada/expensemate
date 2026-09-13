@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import TransactionForm from '../../../src/components/transactions/TransactionForm'
 
@@ -45,7 +45,7 @@ describe('TransactionForm', () => {
     const props = renderForm()
     const amount = screen.getByLabelText('Amount')
 
-    await user.type(amount, '0')
+    await user.type(amount, '-1')
     await user.click(screen.getByRole('button', { name: 'Add transaction' }))
 
     expect(screen.getByText('Amount must be greater than zero')).toBeInTheDocument()
@@ -68,8 +68,7 @@ describe('TransactionForm', () => {
     const props = renderForm()
 
     await user.type(screen.getByLabelText('Amount'), '1200.50')
-    await user.clear(screen.getByLabelText('Date'))
-    await user.type(screen.getByLabelText('Date'), '2026-09-12')
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-09-12' } })
     await user.selectOptions(screen.getByLabelText('Category'), '1')
     await user.type(screen.getByLabelText(/Description/), '  Groceries  ')
     await user.click(screen.getByRole('button', { name: 'Add transaction' }))
@@ -111,8 +110,7 @@ describe('TransactionForm', () => {
 
     await user.click(screen.getByRole('button', { name: 'Income' }))
     await user.type(screen.getByLabelText('Amount'), '50000')
-    await user.clear(screen.getByLabelText('Date'))
-    await user.type(screen.getByLabelText('Date'), '2026-09-01')
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-09-01' } })
     await user.click(screen.getByRole('button', { name: 'Add transaction' }))
 
     expect(props.onSubmit).toHaveBeenCalledWith({
