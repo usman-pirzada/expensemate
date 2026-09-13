@@ -1,0 +1,15 @@
+services:
+  expensemate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: sqlite:////app/data/expensemate.db
+    volumes:
+      - expensemate-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  expensemate-data:
