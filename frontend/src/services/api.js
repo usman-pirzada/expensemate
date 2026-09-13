@@ -47,6 +47,12 @@ export const api = {
     request(`/transactions/${id}`, { method: 'PUT', body: payload }),
   deleteTransaction: (id) => request(`/transactions/${id}`, { method: 'DELETE' }),
 
+  getMonthlyIncome: (year, month) => request(`/income/${year}/${month}`),
+  createMonthlyIncome: (year, month, payload) =>
+    request(`/income/${year}/${month}`, { method: 'POST', body: payload }),
+  resetMonthlyIncome: (year, month) =>
+    request(`/income/${year}/${month}`, { method: 'DELETE' }),
+
   listBudgets: () => request('/budgets'),
   getBudgetByMonth: (year, month) => request(`/budgets/month/${year}/${month}`),
   getBudget: (id) => request(`/budgets/${id}`),
