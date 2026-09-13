@@ -50,9 +50,9 @@ function renderTransactions(data = transactions) {
   const categoryRequest = { data: categories, loading: false, error: null, reload: vi.fn() }
   const transactionRequest = { data, loading: false, error: null, reload: vi.fn() }
 
-  useRequestMock
-    .mockImplementationOnce(() => categoryRequest)
-    .mockImplementationOnce(() => transactionRequest)
+  useRequestMock.mockImplementation((_loader, deps) => (
+    deps.length === 0 ? categoryRequest : transactionRequest
+  ))
 
   render(<MemoryRouter><Transactions /></MemoryRouter>)
   return { categoryRequest, transactionRequest }
