@@ -11,8 +11,9 @@ COPY frontend/ ./
 RUN npm run build
 
 
-# Install Python dependencies into a portable directory.
-FROM python:3.11-slim AS backend-build
+# Build Python dependencies against the same Python/Debian family used by
+# the distroless runtime. This avoids ABI mismatches for native extensions.
+FROM python:3.13-slim-trixie AS backend-build
 WORKDIR /build/backend
 
 COPY backend/pyproject.toml ./
@@ -26,8 +27,8 @@ RUN pip install --no-cache-dir --target /python-deps \
 COPY backend/ ./
 
 
-# Minimal production image. Distroless has no shell/package manager.
-FROM gcr.io/distroless/python3-debian12:nonroot AS production
+# Minimal production image. Distroless has no shell or package manager.
+FROM gcr.io/distroless/python3-debian13:nonroot AS production
 WORKDIR /app
 
 ENV PYTHONPATH=/app/backend:/python-deps \
@@ -40,4 +41,4 @@ COPY --from=frontend-build /build/frontend/dist /app/frontend/dist
 
 EXPOSE 8000
 
-ENTRYPOINT ["/usr/bin/python3", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["/usr/bin/python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
