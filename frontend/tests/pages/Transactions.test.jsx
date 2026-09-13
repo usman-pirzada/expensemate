@@ -46,46 +46,23 @@ const transactions = [
 ]
 
 function renderTransactions(data = transactions) {
-  useMonthMock.mockReturnValue({
-    year: 2026,
-    month: 9,
-    label: 'September 2026',
-  })
-
-  const categoryRequest = {
-    data: categories,
-    loading: false,
-    error: null,
-    reload: vi.fn(),
-  }
-  const transactionRequest = {
-    data,
-    loading: false,
-    error: null,
-    reload: vi.fn(),
-  }
+  useMonthMock.mockReturnValue({ year: 2026, month: 9, label: 'September 2026' })
+  const categoryRequest = { data: categories, loading: false, error: null, reload: vi.fn() }
+  const transactionRequest = { data, loading: false, error: null, reload: vi.fn() }
 
   useRequestMock
     .mockImplementationOnce(() => categoryRequest)
     .mockImplementationOnce(() => transactionRequest)
 
-  render(
-    <MemoryRouter>
-      <Transactions />
-    </MemoryRouter>,
-  )
-
+  render(<MemoryRouter><Transactions /></MemoryRouter>)
   return { categoryRequest, transactionRequest }
 }
 
 describe('Transactions page', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
+  beforeEach(() => vi.clearAllMocks())
 
-  it('shows the selected month and transaction totals', () => {
+  it('shows the selected month, transaction totals, and locked income', () => {
     renderTransactions()
-
     expect(screen.getByText('Showing transactions for')).toBeInTheDocument()
     expect(screen.getByText('September 2026')).toBeInTheDocument()
     expect(screen.getByText(/Rs\s*100,000/)).toBeInTheDocument()
@@ -94,37 +71,33 @@ describe('Transactions page', () => {
     expect(screen.getByText('Monthly salary')).toBeInTheDocument()
     expect(screen.getByText('Groceries')).toBeInTheDocument()
     expect(screen.getByText('Food')).toBeInTheDocument()
+    expect(screen.getByText('Locked')).toBeInTheDocument()
   })
 
-  it('opens the add transaction form', async () => {
+  it('opens the add expense form', async () => {
     const user = userEvent.setup()
     renderTransactions()
-
-    await user.click(screen.getByRole('button', { name: 'Add Transaction' }))
-
+    await user.click(screen.getByRole('button', { name: 'Add Expense' }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.getByRole('dialog')).toHaveTextContent('Add transaction')
+    expect(screen.getByRole('dialog')).toHaveTextContent('Add expense')
     expect(screen.getByLabelText('Amount')).toBeInTheDocument()
   })
 
-  it('deletes a transaction and shows a success message', async () => {
+  it('deletes an expense and shows a success message', async () => {
     const user = userEvent.setup()
     const { transactionRequest } = renderTransactions()
-
-    const deleteButtons = screen.getAllByRole('button', { name: 'Delete transaction' })
-    await user.click(deleteButtons[0])
+    await user.click(screen.getByRole('button', { name: 'Delete transaction' }))
 
     await waitFor(() => {
-      expect(deleteTransaction).toHaveBeenCalledWith(1)
+      expect(deleteTransaction).toHaveBeenCalledWith(2)
       expect(transactionRequest.reload).toHaveBeenCalledTimes(1)
-      expect(screen.getByText('Transaction deleted.')).toBeInTheDocument()
+      expect(screen.getByText('Expense deleted.')).toBeInTheDocument()
     })
   })
 
   it('shows an empty state when there are no transactions', () => {
     renderTransactions([])
-
     expect(screen.getByText('No transactions this month')).toBeInTheDocument()
-    expect(screen.getByText('Record your first income or expense to see it here.')).toBeInTheDocument()
+    expect(screen.getByText('Record your monthly income from the Dashboard, then add expenses here.')).toBeInTheDocument()
   })
 })
