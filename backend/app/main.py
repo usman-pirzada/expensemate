@@ -10,6 +10,7 @@ from app.routers import (
     budget_router,
     category_router,
     csv_router,
+    income_router,
     transaction_router,
 )
 
@@ -50,6 +51,7 @@ def database_health() -> dict[str, str]:
 
 
 app.include_router(transaction_router, prefix="/api")
+app.include_router(income_router, prefix="/api")
 app.include_router(budget_router, prefix="/api")
 app.include_router(category_router, prefix="/api")
 app.include_router(analytics_router, prefix="/api")
