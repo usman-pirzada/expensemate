@@ -1,23 +1,11 @@
 // Domain service: pages talk to this module only.
-//
-// When USE_MOCK is true, every function returns sample data so the UI can be
-// reviewed without a running backend. Flip USE_MOCK to false to talk to the
-// real FastAPI server (see ./api.js).
+// The application uses the real FastAPI backend. Mock data remains available
+// in mockData.js for isolated UI development, but is intentionally disabled.
 
 import { api, ApiError } from './api'
 import { mockApi } from './mockData'
 
-export const USE_MOCK = true
-
-const normalize = (fn) => async (...args) => {
-  if (USE_MOCK) return fn(...args)
-  return mockToReal(fn(...args))
-}
-
-// When the real backend is used, the JSON layer is returned directly.
-function mockToReal(promise) {
-  return promise
-}
+export const USE_MOCK = false
 
 export async function getCategories() {
   if (USE_MOCK) return mockApi.getCategories()
@@ -67,6 +55,21 @@ export async function getAlerts(year, month) {
 export async function getDashboard(year, month) {
   if (USE_MOCK) return mockApi.getDashboard(year, month)
   return api.getDashboard(year, month)
+}
+
+export async function getMonthlyIncome(year, month) {
+  if (USE_MOCK) return mockApi.getMonthlyIncome?.(year, month) ?? null
+  return api.getMonthlyIncome(year, month)
+}
+
+export async function createMonthlyIncome(year, month, amount, description = null) {
+  if (USE_MOCK) return mockApi.createMonthlyIncome?.(year, month, amount, description)
+  return api.createMonthlyIncome(year, month, { amount, description })
+}
+
+export async function resetMonthlyIncome(year, month) {
+  if (USE_MOCK) return mockApi.resetMonthlyIncome?.(year, month)
+  return api.resetMonthlyIncome(year, month)
 }
 
 /** Returns the budget for the month, or null when none exists. */
