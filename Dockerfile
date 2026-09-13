@@ -40,7 +40,8 @@ WORKDIR /app
 
 ENV PYTHONPATH=/app/backend:/python-deps \
     PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    SERVE_FRONTEND=true
 
 COPY --from=backend-build /python-deps /python-deps
 COPY --from=backend-build /build/backend /app/backend
