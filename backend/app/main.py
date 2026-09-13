@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -18,8 +18,10 @@ from app.routers import (
 )
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
+# /app in the Docker image, repository root during local development.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
+BACKEND_PATH_PREFIXES = ("api", "health", "docs", "redoc")
 
 
 @asynccontextmanager
@@ -84,7 +86,16 @@ if settings.serve_frontend:
 
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
-        requested_file = (FRONTEND_DIST / full_path).resolve()
+        normalized_path = full_path.strip("/")
+
+        if normalized_path == "openapi.json" or any(
+            normalized_path == prefix
+            or normalized_path.startswith(f"{prefix}/")
+            for prefix in BACKEND_PATH_PREFIXES
+        ):
+            raise HTTPException(status_code=404, detail="Not Found")
+
+        requested_file = (FRONTEND_DIST / normalized_path).resolve()
         frontend_root = FRONTEND_DIST.resolve()
 
         if requested_file.is_relative_to(frontend_root) and requested_file.is_file():
