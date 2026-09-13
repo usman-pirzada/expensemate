@@ -59,13 +59,16 @@ function renderTransactions(data = transactions) {
 }
 
 describe('Transactions page', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.resetAllMocks()
+    deleteTransaction.mockResolvedValue(undefined)
+  })
 
   it('shows the selected month, transaction totals, and locked income', () => {
     renderTransactions()
     expect(screen.getByText('Showing transactions for')).toBeInTheDocument()
     expect(screen.getByText('September 2026')).toBeInTheDocument()
-    expect(screen.getByText('Income')).toBeInTheDocument()
+    expect(screen.getAllByText('Income').length).toBeGreaterThanOrEqual(2)
     expect(screen.getByText('Spending')).toBeInTheDocument()
     expect(screen.getByText('Net')).toBeInTheDocument()
     expect(screen.getAllByText(/Rs\s*100,000/).length).toBeGreaterThanOrEqual(1)
