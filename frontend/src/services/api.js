@@ -1,6 +1,8 @@
-// Real HTTP layer against the FastAPI backend (all routes are under /api).
-
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+// Real HTTP layer against the FastAPI backend. In the production Docker image,
+// the frontend and API share the same origin, so use a relative /api URL.
+// During Vite development, use the local FastAPI server unless overridden.
+export const API_BASE_URL =
+  import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8000/api' : '/api')
 
 export class ApiError extends Error {
   constructor(status, message) {
@@ -66,8 +68,7 @@ export const api = {
     request(`/budgets/${budgetId}/allocations`, { method: 'POST', body: payload }),
   updateAllocation: (allocationId, amount) =>
     request(`/budgets/allocations/${allocationId}`, { method: 'PUT', body: { amount } }),
-  deleteAllocation: (allocationId) =>
-    request(`/budgets/allocations/${allocationId}`, { method: 'DELETE' }),
+  deleteAllocation: (allocationId) => request(`/budgets/allocations/${allocationId}`, { method: 'DELETE' }),
 
   getSummary: (year, month) => request(`/analytics/summary/${year}/${month}`),
   getCategorySpending: (year, month) => request(`/analytics/categories/${year}/${month}`),
