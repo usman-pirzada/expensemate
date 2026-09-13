@@ -56,6 +56,10 @@ export default function Transactions() {
   }
 
   const openEdit = (transaction) => {
+    if (transaction.type === 'Income') {
+      setMessage({ tone: 'error', text: 'Monthly income is locked. Reset the month from the Dashboard to replace it.' })
+      return
+    }
     setEditing(transaction)
     setFormOpen(true)
   }
@@ -64,15 +68,15 @@ export default function Transactions() {
     setMessage(null)
     try {
       if (editing) {
-        const updated = await updateTransaction(editing.id, payload)
+        await updateTransaction(editing.id, payload)
         transactionsRequest.reload()
         setFormOpen(false)
-        setMessage({ tone: 'success', text: 'Transaction updated.' })
+        setMessage({ tone: 'success', text: 'Expense updated.' })
       } else {
-        await createTransaction(payload)
+        await createTransaction({ ...payload, type: 'Expense' })
         transactionsRequest.reload()
         setFormOpen(false)
-        setMessage({ tone: 'success', text: 'Transaction added.' })
+        setMessage({ tone: 'success', text: 'Expense added.' })
       }
     } catch (error) {
       setMessage({ tone: 'error', text: String(error?.message || error) })
@@ -82,10 +86,14 @@ export default function Transactions() {
 
   const handleDelete = async (transaction) => {
     setMessage(null)
+    if (transaction.type === 'Income') {
+      setMessage({ tone: 'error', text: 'Monthly income is locked. Reset the month from the Dashboard to remove it.' })
+      return
+    }
     try {
       await deleteTransaction(transaction.id)
       transactionsRequest.reload()
-      setMessage({ tone: 'success', text: 'Transaction deleted.' })
+      setMessage({ tone: 'success', text: 'Expense deleted.' })
     } catch (error) {
       setMessage({ tone: 'error', text: String(error?.message || error) })
     }
@@ -94,17 +102,9 @@ export default function Transactions() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       {message ? (
-        <div
-          className={`rounded-lg border px-4 py-3 text-sm ${
-            message.tone === 'error'
-              ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-400/40 dark:bg-red-500/10 dark:text-red-300'
-              : 'border-brand-200 bg-brand-50 text-brand-700 dark:border-brand-400/40 dark:bg-brand-500/10 dark:text-brand-300'
-          }`}
-        >
+        <div className={`rounded-lg border px-4 py-3 text-sm ${message.tone === 'error' ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-400/40 dark:bg-red-500/10 dark:text-red-300' : 'border-brand-200 bg-brand-50 text-brand-700 dark:border-brand-400/40 dark:bg-brand-500/10 dark:text-brand-300'}`}>
           {message.text}
-          <button type="button" className="ml-2 font-medium underline" onClick={() => setMessage(null)}>
-            Dismiss
-          </button>
+          <button type="button" className="ml-2 font-medium underline" onClick={() => setMessage(null)}>Dismiss</button>
         </div>
       ) : null}
 
@@ -112,10 +112,7 @@ export default function Transactions() {
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Showing transactions for <span className="font-semibold text-slate-700 dark:text-slate-200">{label}</span>
         </p>
-        <Button onClick={openAdd}>
-          <IconPlus />
-          Add Transaction
-        </Button>
+        <Button onClick={openAdd}><IconPlus /> Add Expense</Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -126,48 +123,21 @@ export default function Transactions() {
 
       <Card className="overflow-hidden">
         {transactions.length === 0 ? (
-          <EmptyState
-            icon={<IconList />}
-            title="No transactions this month"
-            message="Record your first income or expense to see it here."
-            action={
-              <Button size="sm" onClick={openAdd}>
-                <IconPlus />
-                Add transaction
-              </Button>
-            }
-          />
+          <EmptyState icon={<IconList />} title="No transactions this month" message="Record your monthly income from the Dashboard, then add expenses here." action={<Button size="sm" onClick={openAdd}><IconPlus /> Add expense</Button>} />
         ) : (
           <table className="w-full table-fixed text-left">
             <thead className="border-b border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/60">
               <tr className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                <th className="w-32 px-6 py-3">Date</th>
-                <th className="w-24 px-6 py-3">Type</th>
-                <th className="w-32 px-6 py-3">Category</th>
-                <th className="px-6 py-3">Description</th>
-                <th className="w-32 px-6 py-3 text-right">Amount</th>
-                <th className="w-20 px-6 py-3 text-right">Actions</th>
+                <th className="w-32 px-6 py-3">Date</th><th className="w-24 px-6 py-3">Type</th><th className="w-32 px-6 py-3">Category</th><th className="px-6 py-3">Description</th><th className="w-32 px-6 py-3 text-right">Amount</th><th className="w-20 px-6 py-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-transparent">
-              <TransactionTable
-                transactions={transactions}
-                categoryName={categoryName}
-                onEdit={openEdit}
-                onDelete={(transaction) => handleDelete(transaction)}
-              />
-            </tbody>
+            <tbody className="divide-y divide-transparent"><TransactionTable transactions={transactions} categoryName={categoryName} onEdit={openEdit} onDelete={handleDelete} /></tbody>
           </table>
         )}
       </Card>
 
-      <Modal open={formOpen} onClose={() => setFormOpen(false)} title={editing ? 'Edit transaction' : 'Add transaction'}>
-        <TransactionForm
-          initial={editing}
-          categories={categoriesRequest.data || []}
-          onSubmit={handleSubmit}
-          onClose={() => setFormOpen(false)}
-        />
+      <Modal open={formOpen} onClose={() => setFormOpen(false)} title={editing ? 'Edit expense' : 'Add expense'}>
+        <TransactionForm initial={editing} categories={categoriesRequest.data || []} allowIncome={false} onSubmit={handleSubmit} onClose={() => setFormOpen(false)} />
       </Modal>
     </div>
   )
