@@ -12,6 +12,7 @@ function renderForm(overrides = {}) {
   const props = {
     initial: null,
     categories,
+    allowIncome: false,
     onSubmit: vi.fn().mockResolvedValue(undefined),
     onClose: vi.fn(),
     ...overrides,
@@ -25,16 +26,17 @@ describe('TransactionForm', () => {
   it('renders expense mode with a category selector by default', () => {
     renderForm()
 
-    expect(screen.getByRole('button', { name: 'Expense' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Income' })).not.toBeInTheDocument()
     expect(screen.getByLabelText('Category')).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Food' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add expense' })).toBeInTheDocument()
   })
 
   it('requires an amount', async () => {
     const user = userEvent.setup()
     const props = renderForm()
 
-    await user.click(screen.getByRole('button', { name: 'Add transaction' }))
+    await user.click(screen.getByRole('button', { name: 'Add expense' }))
 
     expect(screen.getByText('Amount is required')).toBeInTheDocument()
     expect(props.onSubmit).not.toHaveBeenCalled()
@@ -46,7 +48,7 @@ describe('TransactionForm', () => {
     const amount = screen.getByLabelText('Amount')
 
     await user.type(amount, '-1')
-    await user.click(screen.getByRole('button', { name: 'Add transaction' }))
+    await user.click(screen.getByRole('button', { name: 'Add expense' }))
 
     expect(screen.getByText('Amount must be greater than zero')).toBeInTheDocument()
     expect(props.onSubmit).not.toHaveBeenCalled()
@@ -57,7 +59,7 @@ describe('TransactionForm', () => {
     const props = renderForm()
 
     await user.type(screen.getByLabelText('Amount'), '1200')
-    await user.click(screen.getByRole('button', { name: 'Add transaction' }))
+    await user.click(screen.getByRole('button', { name: 'Add expense' }))
 
     expect(screen.getByText('Select a category for this expense')).toBeInTheDocument()
     expect(props.onSubmit).not.toHaveBeenCalled()
@@ -71,7 +73,7 @@ describe('TransactionForm', () => {
     fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-09-12' } })
     await user.selectOptions(screen.getByLabelText('Category'), '1')
     await user.type(screen.getByLabelText(/Description/), '  Groceries  ')
-    await user.click(screen.getByRole('button', { name: 'Add transaction' }))
+    await user.click(screen.getByRole('button', { name: 'Add expense' }))
 
     expect(props.onSubmit).toHaveBeenCalledWith({
       type: 'Expense',
@@ -83,46 +85,7 @@ describe('TransactionForm', () => {
     expect(props.onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('switches to income and removes the category selector', async () => {
-    const user = userEvent.setup()
-    renderForm()
-
-    await user.click(screen.getByRole('button', { name: 'Income' }))
-
-    expect(screen.queryByLabelText('Category')).not.toBeInTheDocument()
-    expect(screen.getByText('Income transactions do not have a category.')).toBeInTheDocument()
-  })
-
-  it('clears a selected category when switching from expense to income', async () => {
-    const user = userEvent.setup()
-    renderForm()
-
-    await user.selectOptions(screen.getByLabelText('Category'), '1')
-    await user.click(screen.getByRole('button', { name: 'Income' }))
-    await user.click(screen.getByRole('button', { name: 'Expense' }))
-
-    expect(screen.getByLabelText('Category')).toHaveValue('')
-  })
-
-  it('submits income with a null category', async () => {
-    const user = userEvent.setup()
-    const props = renderForm()
-
-    await user.click(screen.getByRole('button', { name: 'Income' }))
-    await user.type(screen.getByLabelText('Amount'), '50000')
-    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-09-01' } })
-    await user.click(screen.getByRole('button', { name: 'Add transaction' }))
-
-    expect(props.onSubmit).toHaveBeenCalledWith({
-      type: 'Income',
-      amount: 50000,
-      date: '2026-09-01',
-      description: null,
-      category_id: null,
-    })
-  })
-
-  it('loads existing transaction values in edit mode', () => {
+  it('loads existing expense values in edit mode', () => {
     renderForm({
       initial: {
         id: 10,
