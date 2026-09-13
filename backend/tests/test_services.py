@@ -67,6 +67,35 @@ def test_transaction_service_applies_category_rules(session):
         service.create("Income", Decimal("100"), date(2026, 9, 12), category_id=food.id)
 
 
+def test_monthly_income_is_locked_and_can_be_reset(session):
+    service = TransactionService(session)
+
+    income = service.create_monthly_income(2026, 9, Decimal("100000"), "Salary")
+    assert service.get_monthly_income(2026, 9).id == income.id
+
+    with pytest.raises(ValueError, match="already recorded and locked"):
+        service.create_monthly_income(2026, 9, Decimal("120000"))
+
+    with pytest.raises(ValueError, match="locked"):
+        service.update(income.id, "Income", Decimal("120000"), date(2026, 9, 1), "Updated")
+
+    with pytest.raises(ValueError, match="locked"):
+        service.delete(income.id)
+
+    assert service.reset_monthly_income(2026, 9) is True
+    assert service.get_monthly_income(2026, 9) is None
+    replacement = service.create_monthly_income(2026, 9, Decimal("120000"))
+    assert replacement.amount == Decimal("120000.00")
+
+
+def test_regular_transaction_service_cannot_create_second_monthly_income(session):
+    service = TransactionService(session)
+    service.create("Income", Decimal("50000"), date(2026, 9, 12), "Salary")
+
+    with pytest.raises(ValueError, match="already recorded and locked"):
+        service.create("Income", Decimal("100"), date(2026, 9, 20), "Side income")
+
+
 def test_budget_service_prevents_duplicate_month_and_overallocation(session):
     service = BudgetService(session)
     budget = service.create(2026, 9, Decimal("100000"))
