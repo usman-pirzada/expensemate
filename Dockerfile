@@ -24,7 +24,6 @@ RUN pip install --no-cache-dir --target /python-deps \
     "uvicorn[standard]==0.40.0"
 
 COPY backend/ ./
-COPY --from=frontend-build /build/frontend/dist ./frontend/dist
 
 
 # Minimal production image. Distroless has no shell/package manager.
@@ -37,6 +36,7 @@ ENV PYTHONPATH=/app/backend:/python-deps \
 
 COPY --from=backend-build /python-deps /python-deps
 COPY --from=backend-build /build/backend /app/backend
+COPY --from=frontend-build /build/frontend/dist /app/frontend/dist
 
 EXPOSE 8000
 
