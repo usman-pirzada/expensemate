@@ -1,7 +1,8 @@
 services:
   expensemate:
-    image: usman24231/expensemate:1.0.0
-    pull_policy: always
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     environment:
