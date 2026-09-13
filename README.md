@@ -8,6 +8,7 @@ ExpenseMate is a local personal finance manager for recording monthly income and
 - **Backend:** FastAPI + SQLAlchemy
 - **Database:** SQLite
 - **Testing:** pytest, Vitest, React Testing Library
+- **Containerization:** Docker + Docker Compose
 
 ## Features
 
@@ -23,9 +24,33 @@ ExpenseMate is a local personal finance manager for recording monthly income and
 - CSV transaction import/export with atomic imports
 - Light/dark UI and month navigation
 
-## Run locally
+## Prerequisites
 
-### Backend
+### Running directly from source code
+
+Install:
+
+- **Python 3.13+** with [uv](https://docs.astral.sh/uv/)
+- **Node.js 22+** and npm
+
+### Running with Docker
+
+Install:
+
+- **Docker**
+- **Docker Compose** (included with current Docker Desktop installations and the Docker Engine Compose plugin)
+
+Docker is the easiest way to run the complete application because the backend serves the built React frontend from the same container.
+
+---
+
+## Running directly from source code
+
+This option runs the backend and frontend as separate development servers. It is the recommended approach when developing or modifying the application.
+
+### 1. Start the backend
+
+From the repository root:
 
 ```bash
 cd backend
@@ -34,15 +59,15 @@ uv run python -m app.database.init_db
 uv run uvicorn app.main:app --reload
 ```
 
-Backend:
+The backend will be available at:
 
 - `http://127.0.0.1:8000/health`
 - `http://127.0.0.1:8000/health/db`
 - `http://127.0.0.1:8000/docs`
 
-### Frontend
+### 2. Start the frontend
 
-In another terminal:
+Open another terminal at the repository root:
 
 ```bash
 cd frontend
@@ -50,13 +75,218 @@ npm ci
 npm run dev
 ```
 
-Open the Vite URL shown in the terminal, normally `http://localhost:5173`.
+Open the Vite URL shown in the terminal, normally:
 
-The frontend uses the real FastAPI API by default. To use a different backend URL, set `VITE_API_URL`, for example:
+```text
+http://localhost:5173
+```
+
+The frontend uses the FastAPI API by default. To explicitly provide a different backend URL:
 
 ```bash
 VITE_API_URL=http://localhost:8000/api npm run dev
 ```
+
+### Development workflow
+
+When running from source:
+
+```text
+Browser
+   |
+   v
+Vite development server (:5173)
+   |
+   v
+FastAPI backend (:8000)
+   |
+   v
+SQLite database
+```
+
+Changes to the React frontend and FastAPI backend can be developed and tested directly without rebuilding a Docker image.
+
+---
+
+## Running with Docker Compose
+
+There are two ways to use the provided `docker-compose.yml`.
+
+### Option 1: Docker Compose without the source code/build
+
+Use this when you only want to run the already-built/published ExpenseMate image. You do **not** need the application source code to build anything.
+
+The Compose file points to the published image:
+
+```text
+usman24231/expensemate:1.0.0
+```
+
+Run:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+Then open:
+
+```text
+http://localhost:8000
+```
+
+Useful commands:
+
+```bash
+# View running containers
+docker compose ps
+
+# View application logs
+docker compose logs -f
+
+# Stop the application
+docker compose down
+```
+
+The SQLite database is stored in the Docker named volume `expensemate-data`, so stopping/recreating the container does not remove the database.
+
+This mode uses the published image exactly as provided. No `npm install`, Python environment, frontend build, or backend build is performed on the host.
+
+### Option 2: Docker Compose with source code and build
+
+Use this when you have the ExpenseMate repository and want Docker Compose to build the image locally from the source code.
+
+The Dockerfile performs a multi-stage build:
+
+1. Builds the React frontend with Node.js/Vite.
+2. Installs the Python backend runtime dependencies.
+3. Creates a minimal distroless Python production image.
+4. Copies the built React `dist` files into the image.
+5. Runs FastAPI, which serves both the API and the React application.
+
+From the repository root, run:
+
+```bash
+docker compose build
+docker compose up -d
+```
+
+Or, as a single command:
+
+```bash
+docker compose up -d --build
+```
+
+Then open:
+
+```text
+http://localhost:8000
+```
+
+To force a fresh rebuild without using cached Docker layers:
+
+```bash
+docker compose build --no-cache
+docker compose up -d
+```
+
+> **Note:** The current `docker-compose.yml` specifies the published `image:`. If you want Compose to build from the local Dockerfile, remove the `image:` line and add the following under the service:
+>
+> ```yaml
+> build:
+>   context: .
+>   dockerfile: Dockerfile
+> ```
+>
+> The resulting Compose service will then build the application from your local source tree.
+
+### Docker architecture
+
+In the production container, the frontend and backend are served together:
+
+```text
+Browser
+   |
+   v
+FastAPI (:8000)
+   |\
+   | \-- React static files
+   |
+   \---- /api/*
+          |
+          v
+      Service layer
+          |
+          v
+     Repository layer
+          |
+          v
+       SQLAlchemy
+          |
+          v
+        SQLite
+```
+
+The database is persisted through the `expensemate-data` Docker volume mounted at `/app/data`.
+
+---
+
+## Tests
+
+Run the tests from the repository source tree. Docker is not required for the test suite.
+
+### Backend tests
+
+```bash
+cd backend
+uv sync
+uv run pytest
+```
+
+The backend test suite covers API behavior and business/service rules including transactions, monthly income locking/reset, budgets and allocations, dashboard/analytics behavior, CSV import/export, and validation/constraint cases.
+
+### Frontend tests
+
+```bash
+cd frontend
+npm ci
+npm run test:run
+```
+
+The frontend test suite uses Vitest and React Testing Library.
+
+### Frontend production build check
+
+To verify that the React application can be built successfully:
+
+```bash
+cd frontend
+npm run build
+```
+
+### Run the complete verification sequence
+
+From the repository root:
+
+```bash
+cd backend
+uv sync
+uv run pytest
+
+cd ../frontend
+npm ci
+npm run test:run
+npm run build
+```
+
+A successful final verification should therefore include:
+
+- Backend tests passing
+- Frontend tests passing
+- Frontend production build completing successfully
+- Docker image building successfully when containerization is being verified
+
+---
 
 ## Architecture
 
@@ -84,23 +314,7 @@ api.js  ---> FastAPI routes
 
 Business rules are enforced in the backend. The frontend is responsible for presentation, user interaction, and displaying backend results/errors.
 
-## Tests
-
-Backend:
-
-```bash
-cd backend
-uv run pytest
-```
-
-Frontend:
-
-```bash
-cd frontend
-npm ci
-npm run test:run
-npm run build
-```
+---
 
 ## Project structure
 
@@ -124,4 +338,19 @@ frontend/
     services/
     utils/
   tests/
+
+Dockerfile
+docker-compose.yml
+.dockerignore
 ```
+
+## Quick reference
+
+| Goal | Command | Requires source code? |
+|---|---|---:|
+| Develop directly from source | Run FastAPI + Vite separately | Yes |
+| Run published Docker image | `docker compose pull && docker compose up -d` | No |
+| Build Docker image from source | `docker compose up -d --build` after enabling the local `build:` section | Yes |
+| Backend tests | `cd backend && uv run pytest` | Yes |
+| Frontend tests | `cd frontend && npm run test:run` | Yes |
+| Frontend build check | `cd frontend && npm run build` | Yes |
