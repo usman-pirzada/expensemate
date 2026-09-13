@@ -1,0 +1,13 @@
+services:
+  expensemate:
+    image: usman24231/expensemate:1.0.0
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: sqlite:////app/data/expensemate.db
+    volumes:
+      - expensemate-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  expensemate-data:

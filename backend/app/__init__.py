@@ -1,0 +1,1 @@
+"""ExpenseMate backend application package."""
