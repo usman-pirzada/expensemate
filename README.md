@@ -38,9 +38,9 @@ Install:
 Install:
 
 - **Docker**
-- **Docker Compose** (included with current Docker Desktop installations and the Docker Engine Compose plugin)
+- **Docker Compose** when using the source/build Compose option
 
-Docker is the easiest way to run the complete application because the backend serves the built React frontend from the same container.
+Docker is the easiest way to run the complete production application because the backend serves the built React frontend from the same container.
 
 ---
 
@@ -108,28 +108,27 @@ Changes to the React frontend and FastAPI backend can be developed and tested di
 
 ---
 
-## Running with Docker Compose
+## Running with Docker
 
-There are two ways to use the provided `docker-compose.yml`.
+### Option 1: Run the published Docker image directly
 
-### Option 1: Docker Compose without the source code/build
+Use this when you only want to run ExpenseMate. You **do not need the repository, source code, Dockerfile, or `docker-compose.yml`**.
 
-Use this when you only want to run the already-built/published ExpenseMate image. You do **not** need the application source code to build anything.
-
-The Compose file points to the published image:
-
-```text
-usman24231/expensemate:1.0.0
-```
-
-Run:
+Make sure Docker is installed, then run:
 
 ```bash
-docker compose pull
-docker compose up -d
+docker run -d \
+  --name expensemate \
+  -p 8000:8000 \
+  -e DATABASE_URL=sqlite:////app/data/expensemate.db \
+  -v expensemate-data:/app/data \
+  --restart unless-stopped \
+  usman24231/expensemate:1.0.0
 ```
 
-Then open:
+Docker automatically pulls the image from Docker Hub if it is not already available locally.
+
+Open:
 
 ```text
 http://localhost:8000
@@ -138,40 +137,28 @@ http://localhost:8000
 Useful commands:
 
 ```bash
-# View running containers
-docker compose ps
-
 # View application logs
-docker compose logs -f
+docker logs -f expensemate
 
 # Stop the application
-docker compose down
+docker stop expensemate
+
+# Start it again
+docker start expensemate
+
+# Remove the container
+docker rm -f expensemate
 ```
 
-The SQLite database is stored in the Docker named volume `expensemate-data`, so stopping/recreating the container does not remove the database.
+The SQLite database is stored in the Docker named volume `expensemate-data`, so the database remains available when the container is stopped, recreated, or removed.
 
-This mode uses the published image exactly as provided. No `npm install`, Python environment, frontend build, or backend build is performed on the host.
+This option performs no frontend installation, backend environment setup, or application build on the host.
 
-### Option 2: Docker Compose with source code and build
+### Option 2: Run with Docker Compose from source code and build
 
-Use this when you have the ExpenseMate repository and want Docker Compose to build the image locally from the source code.
+Use this when you have the ExpenseMate repository and want Docker Compose to build the application locally from the source code.
 
-The Dockerfile performs a multi-stage build:
-
-1. Builds the React frontend with Node.js/Vite.
-2. Installs the Python backend runtime dependencies.
-3. Creates a minimal distroless Python production image.
-4. Copies the built React `dist` files into the image.
-5. Runs FastAPI, which serves both the API and the React application.
-
-From the repository root, run:
-
-```bash
-docker compose build
-docker compose up -d
-```
-
-Or, as a single command:
+From the repository root:
 
 ```bash
 docker compose up -d --build
@@ -183,22 +170,56 @@ Then open:
 http://localhost:8000
 ```
 
-To force a fresh rebuild without using cached Docker layers:
+The Dockerfile performs a multi-stage build:
+
+1. Builds the React frontend with Node.js/Vite.
+2. Installs the Python backend runtime dependencies.
+3. Creates a minimal distroless Python production image.
+4. Copies the built React `dist` files into the image.
+5. Runs FastAPI, which serves both the API and the React application.
+
+To force a completely fresh build:
 
 ```bash
 docker compose build --no-cache
 docker compose up -d
 ```
 
-> **Note:** The current `docker-compose.yml` specifies the published `image:`. If you want Compose to build from the local Dockerfile, remove the `image:` line and add the following under the service:
->
-> ```yaml
-> build:
->   context: .
->   dockerfile: Dockerfile
-> ```
->
-> The resulting Compose service will then build the application from your local source tree.
+### About the provided `docker-compose.yml`
+
+The current `docker-compose.yml` is configured to run the **published image**:
+
+```text
+usman24231/expensemate:1.0.0
+```
+
+That configuration is useful when the Compose file itself is being used as the deployment configuration. However, **Option 1 does not use this file at all** and is intentionally provided as a single `docker run` command.
+
+To make the Compose file build from the local source code instead, use this service configuration:
+
+```yaml
+services:
+  expensemate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: sqlite:////app/data/expensemate.db
+    volumes:
+      - expensemate-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  expensemate-data:
+```
+
+Then run:
+
+```bash
+docker compose up -d --build
+```
 
 ### Docker architecture
 
@@ -279,7 +300,7 @@ npm run test:run
 npm run build
 ```
 
-A successful final verification should therefore include:
+A successful final verification should include:
 
 - Backend tests passing
 - Frontend tests passing
@@ -349,8 +370,8 @@ docker-compose.yml
 | Goal | Command | Requires source code? |
 |---|---|---:|
 | Develop directly from source | Run FastAPI + Vite separately | Yes |
-| Run published Docker image | `docker compose pull && docker compose up -d` | No |
-| Build Docker image from source | `docker compose up -d --build` after enabling the local `build:` section | Yes |
+| Run published Docker image | `docker run ... usman24231/expensemate:1.0.0` | No |
+| Build Docker image from source | `docker compose up -d --build` with a local `build:` service | Yes |
 | Backend tests | `cd backend && uv run pytest` | Yes |
 | Frontend tests | `cd frontend && npm run test:run` | Yes |
 | Frontend build check | `cd frontend && npm run build` | Yes |
