@@ -1,8 +1,6 @@
 services:
   expensemate:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: usman24231/expensemate:1.0.0
     ports:
       - "8000:8000"
     environment:
