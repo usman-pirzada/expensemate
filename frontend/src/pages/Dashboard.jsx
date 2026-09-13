@@ -11,6 +11,7 @@ import BudgetBar from '../components/common/BudgetBar'
 import AlertBanner from '../components/common/AlertBanner'
 import EmptyState from '../components/common/EmptyState'
 import { IconVault } from '../components/common/Icons'
+import MonthlyIncomeCard from '../components/dashboard/MonthlyIncomeCard'
 
 function ErrorNotice({ error }) {
   return (
@@ -56,6 +57,8 @@ export default function Dashboard() {
         Monthly overview for <span className="font-semibold text-slate-700 dark:text-slate-200">{label}</span>
       </p>
 
+      <MonthlyIncomeCard year={year} month={month} onChanged={() => dashboardRequest.reload()} />
+
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Total Income" value={formatCurrency(summary.income)} tone="income" />
         <StatCard label="Total Spending" value={formatCurrency(summary.spending)} tone="expense" />
@@ -66,7 +69,7 @@ export default function Dashboard() {
         <Card className="p-5">
           <CardHeader
             title="Overall monthly budget"
-            subtitle={`${summary.budget_id ? 'Annual budget' : 'No budget configured'}`}
+            subtitle={budgetId ? 'Configured for this month' : 'No budget configured'}
           />
           <div className="mt-4 px-0">
             <BudgetBar
