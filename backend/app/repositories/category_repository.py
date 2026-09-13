@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import case, select
 from sqlalchemy.orm import Session
 
 from app.models.category import Category
@@ -12,8 +12,11 @@ class CategoryRepository:
         self.db = db
 
     def get_all(self) -> list[Category]:
-        """Return all categories ordered by name."""
-        statement = select(Category).order_by(Category.name)
+        """Return all categories alphabetically, with Other listed last."""
+        statement = select(Category).order_by(
+            case((Category.name == "Other", 1), else_=0),
+            Category.name,
+        )
         return list(self.db.scalars(statement).all())
 
     def get_by_id(self, category_id: int) -> Category | None:
