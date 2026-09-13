@@ -65,8 +65,22 @@ app.include_router(analytics_router, prefix="/api")
 app.include_router(csv_router, prefix="/api")
 
 
-if FRONTEND_DIST.exists():
-    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
+if settings.serve_frontend:
+    if not FRONTEND_DIST.is_dir():
+        raise RuntimeError(
+            f"Frontend build directory does not exist: {FRONTEND_DIST}"
+        )
+
+    frontend_index = FRONTEND_DIST / "index.html"
+    assets_dir = FRONTEND_DIST / "assets"
+
+    if not frontend_index.is_file():
+        raise RuntimeError(f"Frontend entry point does not exist: {frontend_index}")
+
+    if not assets_dir.is_dir():
+        raise RuntimeError(f"Frontend assets directory does not exist: {assets_dir}")
+
+    app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
@@ -76,4 +90,4 @@ if FRONTEND_DIST.exists():
         if requested_file.is_relative_to(frontend_root) and requested_file.is_file():
             return FileResponse(requested_file)
 
-        return FileResponse(FRONTEND_DIST / "index.html")
+        return FileResponse(frontend_index)
