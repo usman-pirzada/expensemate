@@ -49,6 +49,21 @@ class TransactionRepository:
         )
         return list(self.db.scalars(statement).all())
 
+    def get_income_by_month(self, year: int, month: int) -> Transaction | None:
+        from calendar import monthrange
+
+        start_date = date(year, month, 1)
+        end_date = date(year, month, monthrange(year, month)[1])
+        statement = (
+            select(Transaction)
+            .where(
+                Transaction.type == "Income",
+                Transaction.date.between(start_date, end_date),
+            )
+            .order_by(Transaction.date.asc(), Transaction.id.asc())
+        )
+        return self.db.scalars(statement).first()
+
     def get_expenses_by_month(self, year: int, month: int) -> list[Transaction]:
         from calendar import monthrange
 
