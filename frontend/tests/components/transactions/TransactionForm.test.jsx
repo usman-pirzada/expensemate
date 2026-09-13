@@ -42,13 +42,11 @@ describe('TransactionForm', () => {
     expect(props.onSubmit).not.toHaveBeenCalled()
   })
 
-  it('rejects zero and negative amounts', async () => {
-    const user = userEvent.setup()
+  it('rejects zero and negative amounts', () => {
     const props = renderForm()
     const amount = screen.getByLabelText('Amount')
-
-    await user.type(amount, '-1')
-    await user.click(screen.getByRole('button', { name: 'Add expense' }))
+    fireEvent.change(amount, { target: { value: '-1' } })
+    fireEvent.submit(amount.closest('form'))
 
     expect(screen.getByText('Amount must be greater than zero')).toBeInTheDocument()
     expect(props.onSubmit).not.toHaveBeenCalled()
