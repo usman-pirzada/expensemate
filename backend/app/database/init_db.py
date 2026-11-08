@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from sqlalchemy import inspect
 
 from app.core.config import DEFAULT_DATABASE_PATH
@@ -11,15 +9,14 @@ from app import models  # noqa: F401
 
 
 def initialize_database() -> None:
-    """Create all tables, integrity triggers, and predefined categories."""
-    DEFAULT_DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    """Create tables, integrity triggers, and predefined categories."""
+    if engine.dialect.name == "sqlite":
+        DEFAULT_DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(bind=engine)
-
     with engine.begin() as connection:
         create_budget_triggers(connection)
 
     from app.database.connection import SessionLocal
-
     with SessionLocal() as db:
         seed_categories(db)
 

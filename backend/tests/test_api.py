@@ -124,3 +124,12 @@ def test_csv_import_is_atomic(client):
     response = client.get("/api/transactions?year=2026&month=9")
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_category_list_endpoint(client):
+    response = client.get("/api/categories")
+
+    assert response.status_code == 200
+    categories = response.json()
+    assert categories
+    assert categories[-1]["name"] == "Other"

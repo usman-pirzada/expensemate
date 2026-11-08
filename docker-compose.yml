@@ -1,4 +1,19 @@
 services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: \${POSTGRES_DB:-expensemate}
+      POSTGRES_USER: \${POSTGRES_USER:-expensemate}
+      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD:-expensemate_dev_password}
+    volumes:
+      - expensemate-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$\${POSTGRES_USER}\" -d \"$$\${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
   expensemate:
     build:
       context: .
@@ -6,10 +21,29 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: sqlite:////app/data/expensemate.db
-    volumes:
-      - expensemate-data:/app/data
+      DATABASE_URL: postgresql+psycopg://\${POSTGRES_USER:-expensemate}:\${POSTGRES_PASSWORD:-expensemate_dev_password}@db:5432/\${POSTGRES_DB:-expensemate}
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
+  # Run only when importing an existing SQLite data directory:
+  # docker compose up -d db
+  # docker compose --profile migration run --rm migrate
+  migrate:
+    profiles: ["migration"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    entrypoint: ["/usr/bin/python", "-m", "scripts.migrate_sqlite_to_postgres"]
+    environment:
+      SOURCE_DATABASE_URL: sqlite:////legacy-data/expensemate.db
+      TARGET_DATABASE_URL: postgresql+psycopg://\${POSTGRES_USER:-expensemate}:\${POSTGRES_PASSWORD:-expensemate_dev_password}@db:5432/\${POSTGRES_DB:-expensemate}
+    volumes:
+      - ./data:/legacy-data:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
-  expensemate-data:
+  expensemate-postgres-data:
