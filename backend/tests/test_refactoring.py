@@ -68,13 +68,13 @@ def test_transaction_csv_codec_round_trip():
 
 def test_transaction_csv_codec_rejects_invalid_headers():
     with pytest.raises(ValueError, match="must contain"):
-        TransactionCSVCodec.decode("type,amount\\nExpense,25\\n")
+        TransactionCSVCodec.decode("type,amount\nExpense,25\n")
 
 
 def test_transaction_csv_codec_identifies_malformed_row():
     content = (
-        "type,amount,date,description,category_id\\n"
-        "Expense,not-a-number,2026-09-12,Lunch,3\\n"
+        "type,amount,date,description,category_id\n"
+        "Expense,not-a-number,2026-09-12,Lunch,3\n"
     )
 
     with pytest.raises(ValueError, match="CSV row 2"):
