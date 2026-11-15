@@ -8,7 +8,7 @@ services:
     volumes:
       - expensemate-postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -27,7 +27,9 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # Run only when importing an existing SQLite data directory:
+  # Run only when importing an existing SQLite database:
+  # - Legacy Compose users: set LEGACY_SQLITE_VOLUME to the old volume name.
+  # - File-based users: set SOURCE_DATABASE_URL=sqlite:////legacy-data/expensemate.db.
   # docker compose up -d db
   # docker compose --profile migration run --rm migrate
   migrate:
@@ -37,9 +39,10 @@ services:
       dockerfile: Dockerfile
     entrypoint: ["/usr/bin/python", "-m", "scripts.migrate_sqlite_to_postgres"]
     environment:
-      SOURCE_DATABASE_URL: sqlite:////legacy-data/expensemate.db
+      SOURCE_DATABASE_URL: ${SOURCE_DATABASE_URL:-sqlite:////legacy-volume/expensemate.db}
       TARGET_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-expensemate}:${POSTGRES_PASSWORD:-expensemate_dev_password}@db:5432/${POSTGRES_DB:-expensemate}
     volumes:
+      - legacy-sqlite-data:/legacy-volume:ro
       - ./data:/legacy-data:ro
     depends_on:
       db:
@@ -47,3 +50,7 @@ services:
 
 volumes:
   expensemate-postgres-data:
+  legacy-sqlite-data:
+    # Default is the volume created by the previous Compose project when its
+    # project name was "expensemate". Override for a differently named volume.
+    name: ${LEGACY_SQLITE_VOLUME:-expensemate_expensemate-data}

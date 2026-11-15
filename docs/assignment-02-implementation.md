@@ -54,14 +54,30 @@ The CSV wire format remains `type, amount, date, description, category_id`.
 
 The migration path is SQLite to PostgreSQL. Local development continues to default to SQLite; Docker Compose provisions PostgreSQL 17. The migration utility requires an empty destination, copies mapped tables in SQLAlchemy dependency order, preserves primary keys, resets PostgreSQL serial sequences, and leaves the SQLite source unchanged.
 
-Run a migration with PostgreSQL available:
+The migration service supports both source layouts used by earlier versions:
 
-1. Place the existing SQLite database at `./data/expensemate.db`.
-2. Start PostgreSQL: `docker compose up -d db`.
-3. Run the one-time copy: `docker compose --profile migration run --rm migrate`.
-4. Start the application: `docker compose up -d expensemate`.
+**Existing Docker Compose installation using a named volume**
 
-Do not run the copy against a destination containing application records. Back up both databases before an operational migration.
+1. Run `docker volume ls` and identify the old SQLite volume. With the previous Compose project name `expensemate`, its usual name is `expensemate_expensemate-data`.
+2. Back up the volume before migration. For example, replace the volume name below with the exact name from `docker volume ls`:
+   `docker run --rm -v expensemate_expensemate-data:/source:ro -v "$PWD/backups":/backup alpine tar -czf /backup/expensemate-sqlite-backup.tgz -C /source .`
+3. Set `LEGACY_SQLITE_VOLUME` in the repository-root `.env` file to that exact volume name if it differs from the default.
+4. Start PostgreSQL: `docker compose up -d db`.
+5. Run the one-time copy: `docker compose --profile migration run --rm migrate`.
+
+The `migrate` service mounts the legacy volume read-only. It does not modify or delete the old volume. Keep the Compose project name unchanged unless `LEGACY_SQLITE_VOLUME` is set to the exact existing Docker volume name.
+
+**Database file already exported to ./data**
+
+The migration service also mounts `./data` at `/legacy-data`. Select that source explicitly:
+
+```bash
+SOURCE_DATABASE_URL=sqlite:////legacy-data/expensemate.db docker compose --profile migration run --rm migrate
+```
+
+After migration, start the application with `docker compose up -d expensemate`. Do not start the application against the target PostgreSQL database before migrating, because application initialization may create records in the destination and the migration script intentionally refuses a non-empty target. Back up both databases before an operational migration.
+
+The source-volume compatibility fix affects only the opt-in `migration` Compose profile; it does not change the normal application service or its runtime database configuration.
 
 ## Maintainability measurements
 
