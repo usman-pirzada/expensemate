@@ -26,7 +26,7 @@ CI run [43667589460](https://github.com/usman-pirzada/expensemate/actions/runs/4
 
 ## Version-control arrangement
 
-The Assignment 01 baseline is retained on `assignment-01-baseline`. Assignment 02 changes are on `assignment-02-completion`; the original `assignment-02-refactor` branch remains available. `main` and `staging` remain unchanged by these Assignment 02 commits. The implementation branch is ten commits ahead of `staging` at the time this change log was prepared.
+The Assignment 01 baseline is retained on `assignment-01-baseline`. Assignment 02 changes are on `assignment-02-completion`; the original `assignment-02-refactor` branch remains available. `main` and `staging` remain unchanged by these Assignment 02 commits. The Assignment 02 implementation remains on its own branch; no merge into `staging` or `main` is included in this change set.
 
 ## Team contribution record
 
