@@ -124,3 +124,22 @@ def test_csv_import_is_atomic(client):
     response = client.get("/api/transactions?year=2026&month=9")
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_category_list_endpoint(client):
+    response = client.get("/api/categories")
+
+    assert response.status_code == 200
+    categories = response.json()
+    assert categories
+    assert categories[-1]["name"] == "Other"
+
+def test_csv_import_rejects_non_finite_amounts_as_client_error(client):
+    content = (
+        "type,amount,date,description,category_id\n"
+        "Income,NaN,2026-09-01,Salary,\n"
+    )
+    response = client.post("/api/transactions/csv/import", json={"content": content})
+
+    assert response.status_code == 400
+    assert "finite decimal" in response.json()["detail"]
