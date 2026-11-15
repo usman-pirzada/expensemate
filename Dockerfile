@@ -33,4 +33,4 @@ COPY --from=backend-build /build/backend /app/backend
 COPY --from=backend-build /build/data /app/data
 COPY --from=frontend-build /build/frontend/dist /app/frontend/dist
 EXPOSE 8000
-ENTRYPOINT ["/usr/bin/python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["/usr/bin/python3", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,0 +1,82 @@
+name: ExpenseMate CI
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+      - assignment-02-completion
+  pull_request:
+    branches:
+      - main
+      - staging
+      - assignment-02-completion
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend tests and PostgreSQL migration verification
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: expensemate_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d expensemate_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      TEST_POSTGRES_URL: postgresql+psycopg://postgres:postgres@localhost:5432/expensemate_test
+    steps:
+      - name: Check out source and baseline history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch Assignment 01 baseline ref
+        run: git fetch origin assignment-01-baseline:refs/remotes/origin/assignment-01-baseline
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - name: Install backend and PostgreSQL driver
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install "psycopg[binary]>=3.2,<4"
+      - name: Run backend unit, API, and database tests
+        working-directory: backend
+        run: pytest -q
+      - name: Measure maintainability against Assignment 01 baseline
+        run: python backend/scripts/maintainability_report.py --base-ref origin/assignment-01-baseline --head-ref HEAD
+
+  frontend:
+    name: Frontend regression tests and production build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Run frontend regression tests
+        working-directory: frontend
+        run: npm run test:run
+      - name: Build production frontend
+        working-directory: frontend
+        run: npm run build
