@@ -5,9 +5,16 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
 
+_connect_args = (
+    {"check_same_thread": False}
+    if settings.database_url.startswith("sqlite")
+    else {}
+)
+
 engine = create_engine(
     settings.database_url,
-    connect_args={"check_same_thread": False},
+    connect_args=_connect_args,
+    pool_pre_ping=True,
 )
 
 SessionLocal = sessionmaker(
@@ -18,12 +25,14 @@ SessionLocal = sessionmaker(
 )
 
 
-@event.listens_for(engine, "connect")
-def enable_sqlite_foreign_keys(dbapi_connection, connection_record):
-    """Enable SQLite foreign-key enforcement for every database connection."""
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA foreign_keys = ON")
-    cursor.close()
+if engine.dialect.name == "sqlite":
+
+    @event.listens_for(engine, "connect")
+    def enable_sqlite_foreign_keys(dbapi_connection, connection_record):
+        """Enable SQLite foreign-key enforcement for every pooled connection."""
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys = ON")
+        cursor.close()
 
 
 def get_db() -> Generator[Session, None, None]:
