@@ -86,6 +86,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate Compose configuration including migration profile
+        run: LEGACY_SQLITE_VOLUME=expensemate_test_legacy_data docker compose --profile migration config --quiet
       - name: Build and start ExpenseMate with PostgreSQL
         run: docker compose up --build --detach db expensemate
       - name: Verify application and database connectivity
