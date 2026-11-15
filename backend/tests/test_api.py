@@ -136,8 +136,8 @@ def test_category_list_endpoint(client):
 
 def test_csv_import_rejects_non_finite_amounts_as_client_error(client):
     content = (
-        "type,amount,date,description,category_id\\n"
-        "Income,NaN,2026-09-01,Salary,\\n"
+        "type,amount,date,description,category_id\n"
+        "Income,NaN,2026-09-01,Salary,\n"
     )
     response = client.post("/api/transactions/csv/import", json={"content": content})
 
