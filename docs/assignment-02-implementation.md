@@ -1,21 +1,51 @@
 # Assignment 02 — Engineering Implementation Notes
 
-## Layered architecture
+## Before and after architecture
 
-The backend follows the required dependency direction:
+The Assignment 01 code already routed Add Expense and Monthly Budget Summary through services and repositories. The main bypass found during review was category listing, where the route instantiated a repository directly. CSV import/export also combined CSV-format conversion and use-case orchestration in one service.
+
+**Before**
 
 ```mermaid
 flowchart TD
-    C[FastAPI Controllers / Routers] --> S[Application Services]
-    S --> R[Repositories]
-    R --> D[(SQLAlchemy Database)]
+    TC[Transaction Controller] --> TS[TransactionService]
+    TS --> TR[TransactionRepository]
+    TR --> DB[(Database)]
+    AC[Analytics Controller] --> AS[AnalyticsService]
+    AS --> AR[Analytics / Budget Repositories]
+    AR --> DB
+    CC[Category Controller] --> CR[CategoryRepository]
+    CR --> DB
+    CSV[CSV Controller] --> CS[CSVService: parsing, formatting, orchestration]
+    CS --> TS
 ```
 
-Transaction endpoints route through `TransactionService`; monthly analytics endpoints route through `AnalyticsService`; category listing routes through `CategoryService`. Repositories own persistence operations while services coordinate transaction, budget, CSV, and validation use cases.
+**After**
+
+```mermaid
+flowchart TD
+    TC[Transaction Controller] --> TS[TransactionService]
+    TS --> TV[TransactionValidator]
+    TV --> CAT[CategoryRepository]
+    TS --> TR[TransactionRepository]
+    TR --> DB[(Database)]
+    CAT --> DB
+    AC[Analytics Controller] --> AS[AnalyticsService]
+    AS --> AR[Analytics / Budget Repositories]
+    AR --> DB
+    CC[Category Controller] --> CATS[CategoryService]
+    CATS --> CR[CategoryRepository]
+    CR --> DB
+    CSV[CSV Controller] --> CS[CSVService]
+    CS --> CODEC[TransactionCSVCodec]
+    CS --> TS
+```
+
+The refactored feature paths include Add Expense (validation separated from use-case orchestration) and CSV import/export (format conversion separated from application orchestration). Category listing was additionally corrected to follow Controller → Service → Repository → Database. Monthly Budget Summary already followed the required layers in the Assignment 01 baseline and remains on that path.
 
 ## Selected rewrites
 
-- `TransactionService` delegates reusable transaction input and category rules to `TransactionValidator`, leaving the service to coordinate use cases and monthly-income policy.
+- `TransactionService` delegates reusable transaction input and category rules to `TransactionValidator`, leaving the service to coordinate transaction use cases and monthly-income policy.
 - `CSVService` coordinates import/export through `TransactionCSVCodec`; the codec owns CSV serialization, parsing, header validation, and row conversion.
 
 The CSV wire format remains `type, amount, date, description, category_id`.
@@ -36,8 +66,9 @@ Do not run the copy against a destination containing application records. Back u
 ## Verification
 
 - `pytest -q` runs backend unit, repository, API/system, database-constraint, refactoring, CSV-validation, and migration tests.
-- When `TEST_POSTGRES_URL` is configured, the PostgreSQL migration test creates an isolated schema, copies fixture records from SQLite, verifies row counts and identifiers, verifies generated IDs advance beyond migrated IDs, and verifies the PostgreSQL allocation trigger.
+- With `TEST_POSTGRES_URL` configured, the PostgreSQL test creates an isolated schema, copies fixture records from SQLite, verifies row counts and identifiers, verifies generated IDs advance beyond migrated IDs, and verifies the PostgreSQL allocation trigger.
 - `npm run test:run` runs the frontend regression suite; `npm run build` verifies the production bundle.
 - `backend/scripts/maintainability_report.py` compares direct repository imports in router modules and AST decision points in transaction/CSV orchestration classes against the Assignment 01 baseline. The AST indicator is an approximate structural measure, not a formal whole-program complexity score.
+- Docker Compose CI builds and starts the application against PostgreSQL, then checks database connectivity and the seeded category endpoint.
 
-GitHub Actions runs the checks on pushes and pull requests for the configured branches. Actual results are available in the corresponding workflow run.
+The CI workflow's recorded run is the verification evidence; the results are not inferred from the test definitions.

@@ -80,3 +80,28 @@ jobs:
       - name: Build production frontend
         working-directory: frontend
         run: npm run build
+
+  container-smoke:
+    name: Docker Compose PostgreSQL application smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start ExpenseMate with PostgreSQL
+        run: docker compose up --build --detach db expensemate
+      - name: Verify application and database connectivity
+        run: |
+          set -eu
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://localhost:8000/health/db; then
+              echo
+              curl --fail --silent http://localhost:8000/api/categories
+              echo
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs
+          exit 1
+      - name: Stop containers and remove test volume
+        if: always()
+        run: docker compose down --volumes --remove-orphans
